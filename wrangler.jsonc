@@ -1,0 +1,9 @@
+{
+  "name": "splitmyexpenses-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": { "bindings": [{ "name": "MCP_OBJECT", "class_name": "SplitMyExpensesMCP" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SplitMyExpensesMCP"] }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "ac1330315f47406e98272aac419d80d8" }]
+}
