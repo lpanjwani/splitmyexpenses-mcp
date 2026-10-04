@@ -60,7 +60,7 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
   private registerWriteTools() {
     this.tool(
       "create_expense",
-      "Create an equal-split expense, or an unequal one when `owed` is given (or a solo one-person expense when participants is omitted). Amount in minor units (AED 119.20 = 11920). Looks up nothing: use real user ids from list_groups/list_friends.",
+      "Create a regular expense (type 1): equal split (split_type 1), or exact per-person amounts (split_type 2) when `owed` is given, or a solo one-person expense when participants is omitted. For settlements/payments use record_payment instead. Amount in minor units (AED 119.20 = 11920). Looks up nothing: use real user ids from list_groups/list_friends.",
       {
         ...scopeShape,
         description: z.string(),
@@ -95,7 +95,7 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
 
     this.tool(
       "record_payment",
-      "Record a settlement: `from` pays `to` an amount (minor units). Unverified against the live API's payment payload; check the result.",
+      "Record a settlement/payment (expense type 2, payment_service_type 1, split_type 7): `from` pays `to` an amount (minor units). Payload matches existing payments in the live API.",
       {
         ...scopeShape,
         from: id().describe("User id who paid"),
@@ -122,7 +122,7 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
 
     this.tool(
       "update_expense",
-      "Edit an expense. Changing amount/participants/payer recomputes an equal split; `owed` switches to an exact unequal split.",
+      "Edit an expense. Changing amount/participants/payer recomputes an equal split; `owed` switches to an exact split (split_type 2). Payments (type 2, split_type 7) keep their type but their amount/payer cannot be changed: delete and re-record with record_payment.",
       {
         ...scopeShape,
         expense_id: id(),
