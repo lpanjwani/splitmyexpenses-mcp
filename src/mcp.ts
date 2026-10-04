@@ -1,7 +1,7 @@
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SME, EQUAL_SPLIT, EXACT_SPLIT, PAYMENT_SPLIT } from "./sme.js";
+import { SME, EQUAL_SPLIT, EXACT_SPLIT } from "./sme.js";
 import { CATEGORIES } from "./categories.js";
 import type { Env, Props, Scope } from "./types.js";
 
@@ -60,7 +60,7 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
   private registerWriteTools() {
     this.tool(
       "create_expense",
-      "Create a regular expense (type 1, or type 2 = payment via `type`): equal split (split_type 1), or exact per-person amounts (split_type 2) when `owed` is given, or a solo one-person expense when participants is omitted. For settlements/payments use record_payment instead. Amount in minor units (AED 119.20 = 11920). Looks up nothing: use real user ids from list_groups/list_friends.",
+      "Create a regular expense (type 1): equal split (split_type 1), or exact per-person amounts (split_type 2) when `owed` is given, or a solo one-person expense when participants is omitted. Never use this for settlements/payments: use record_payment. Amount in minor units (AED 119.20 = 11920). Looks up nothing: use real user ids from list_groups/list_friends.",
       {
         ...scopeShape,
         description: z.string(),
@@ -78,33 +78,12 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
           ),
         owed: owedSchema.optional(),
         paid_by: id().describe("User id who paid (need not be a participant)"),
-        type: z
-          .union([z.literal(1), z.literal(2)])
-          .default(1)
-          .describe(
-            "1 = regular expense (default). 2 = settlement payment: `paid_by` pays the single receiver, given as one `participants` id or one `owed` entry (same as record_payment).",
-          ),
       },
       (a) => {
         scope(a);
-        if (a.type === 2) {
-          const to =
-            a.participants?.length === 1 ? a.participants[0] : a.owed?.length === 1 ? a.owed[0].user_id : undefined;
-          if (to === undefined)
-            throw new Error("type 2 needs exactly one receiver (one participant or one owed entry)");
-          return this.sme.createExpense({
-            ...a,
-            type: 2,
-            payment_service_type: 1,
-            split_type: PAYMENT_SPLIT,
-            shares: SME.payment(a.amount, a.paid_by, to),
-            group_id: a.group_id ?? null,
-          });
-        }
         const participants = a.participants ?? [a.paid_by];
         return this.sme.createExpense({
           ...a,
-          type: undefined,
           split_type: a.owed ? EXACT_SPLIT : EQUAL_SPLIT,
           shares: a.owed
             ? SME.exactShares(a.amount, a.owed, a.paid_by)
@@ -116,7 +95,7 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
 
     this.tool(
       "record_payment",
-      "Record a settlement/payment (expense type 2, payment_service_type 1, split_type 7): `from` pays `to` an amount (minor units). Payload matches existing payments in the live API.",
+      "Record a settlement/payment (expense type 2) via the app's /payments endpoint: `from` pays `to` an amount (minor units).",
       {
         ...scopeShape,
         from: id().describe("User id who paid"),
@@ -124,20 +103,11 @@ export class SplitMyExpensesMCP extends McpAgent<Env, unknown, Props> {
         amount: id().positive(),
         currency: z.string().default("AED"),
         date: z.string().describe("YYYY-MM-DD"),
+        note: z.string().optional(),
       },
       (a) => {
         scope(a);
-        return this.sme.createExpense({
-          description: "Payment",
-          currency: a.currency,
-          amount: a.amount,
-          date: a.date,
-          split_type: PAYMENT_SPLIT,
-          type: 2,
-          payment_service_type: 1,
-          shares: SME.payment(a.amount, a.from, a.to),
-          group_id: a.group_id ?? null,
-        });
+        return this.sme.createPayment(a);
       },
     );
 

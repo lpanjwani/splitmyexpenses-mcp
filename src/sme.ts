@@ -50,12 +50,37 @@ export class SME {
     return shares;
   }
 
-  /** Settlement: `from` pays `to` (type 2, split 7: payer paid, receiver owed). */
-  static payment(amount: number, from: number, to: number): Share[] {
-    return [
-      { user_id: to, paid: 0, owed: amount, calculated_amount: amount },
-      { user_id: from, paid: amount, owed: 0, calculated_amount: 0 },
-    ];
+  /** Settlement: `from` pays `to`. Mirrors the web app's POST /payments (expenseType 2, splitType 7, signed calculated_amount). */
+  createPayment(p: {
+    amount: number;
+    currency: string;
+    date: string;
+    from: number;
+    to: number;
+    note?: string;
+    group_id?: number | null;
+  }) {
+    const share = (user_id: number, paid: number, owed: number, calculated_amount: number) => ({
+      user_id,
+      paid,
+      owed,
+      input: null,
+      currency: p.currency,
+      calculated_amount,
+    });
+    return this.session.request("POST", "/payments", {
+      id: null,
+      currency: p.currency,
+      amount: p.amount,
+      // ponytail: fixed UAE offset; midday keeps the calendar date in any zone
+      date: `${p.date}T12:00:00+04:00`,
+      expenseGroupId: p.group_id ?? null,
+      shares: [share(p.from, p.amount, 0, p.amount), share(p.to, 0, p.amount, -p.amount)],
+      paymentServiceType: 1,
+      expenseType: 2,
+      note: p.note ?? null,
+      splitType: PAYMENT_SPLIT,
+    });
   }
 
   private static scopePath(s: Scope) {
