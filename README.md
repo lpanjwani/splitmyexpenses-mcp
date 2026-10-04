@@ -64,7 +64,8 @@ npx wrangler kv namespace create OAUTH_KV   # paste the id into wrangler.jsonc
 npx wrangler deploy                          # set CLOUDFLARE_ACCOUNT_ID if you have several accounts
 ```
 
-Then add `https://<worker>.workers.dev/mcp` as a connector. Choose **Register automatically** (DCR); CIMD is not enabled.
+Then add `https://<worker>.workers.dev/mcp` as a connector. See [INSTALL.md](INSTALL.md) for Claude Desktop,
+Claude Code, Gemini and OpenAI. Clients register automatically (DCR); CIMD is not enabled.
 
 Develop: `npm run dev` (local), `npm run check` (typecheck), `npx prettier --write src` (format, 120 cols).
 
